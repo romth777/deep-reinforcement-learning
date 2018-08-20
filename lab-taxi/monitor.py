@@ -30,6 +30,9 @@ def interact(env, agent, num_episodes=20000, window=100):
         state = env.reset()
         # initialize the sampled reward
         samp_reward = 0
+        agent.set_i_episode(i_episode)
+
+        agent.policy_s = agent.epsilon_greedy_probs(agent.Q[state])
         while True:
             # agent selects an action
             action = agent.select_action(state)
