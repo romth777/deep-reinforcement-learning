@@ -50,7 +50,6 @@ if mode == "sample":
     print("Score: {}".format(score))
 
 
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,20 +67,19 @@ class QNetwork(nn.Module):
             seed (int): Random seed
         """
         super(QNetwork, self).__init__()
-        self.conv1 = nn.Conv2d(3, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(20*18*18, 50)
+        self.model = models.resnet18(pretrained=True)
+        # Freeze parameters so we don't backprop through them
+        for param in self.model.parameters():
+            param.requires_grad = False
+        self.fc1 = nn.Linear(1000, 50)
         self.fc2 = nn.Linear(50, action_size)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2)) # 1, 20, 18, 18
-        x = x.view(-1, 20*18*18)
+        x = self.model(x)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = F.relu(self.fc2(x))
-        return F.log_softmax(x)
+        return F.softmax(x)
 
 
 import numpy as np
@@ -91,6 +89,7 @@ from collections import namedtuple, deque
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 64  # minibatch size
@@ -100,6 +99,7 @@ LR = 5e-4  # learning rate
 UPDATE_EVERY = 4  # how often to update the network
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 
 
 class Agent():
@@ -129,9 +129,20 @@ class Agent():
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
 
+        self.transform = transforms.Compose(
+            [transforms.ToPILImage(),
+             transforms.Resize((256, 256)),
+             transforms.CenterCrop(224),
+             transforms.ToTensor(),
+             transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                  std=[0.229, 0.224, 0.225])])
+
+
     def step(self, state, action, reward, next_state, done):
-        state = torch.from_numpy(state).permute(0, 3, 1, 2).float().data.numpy()
-        next_state = torch.from_numpy(next_state).permute(0, 3, 1, 2).float().data.numpy()
+        # state = torch.from_numpy(state).permute(0, 3, 1, 2).float().data.numpy()
+        # next_state = torch.from_numpy(next_state).permute(0, 3, 1, 2).float().data.numpy()
+        state = self.transform((state * 256).astype(np.uint8)[0]).unsqueeze(0).to(device)
+        next_state = self.transform((next_state * 256).astype(np.uint8)[0]).unsqueeze(0).to(device)
 
         # Save experience in replay memory
         self.memory.add(state, action, reward, next_state, done)
@@ -152,9 +163,8 @@ class Agent():
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
-        # state = torch.from_numpy(state).permute(0, 3, 1, 2).float().unsqueeze(0).to(device)
-        state = torch.from_numpy(state).permute(0, 3, 1, 2).float().to(device)
-        # state = torch.from_numpy(state).float().to(device)
+        # state = torch.from_numpy(state).permute(0, 3, 1, 2).float().to(device)
+        state = self.transform((state * 256).astype(np.uint8)[0]).unsqueeze(0).to(device)
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
@@ -257,8 +267,6 @@ class ReplayBuffer:
         """Return the current size of internal memory."""
         return len(self.memory)
 
-
-from torchvision import transforms
 
 def dqn(n_episodes=1000, max_t=1000, eps_start=1.0, eps_end=0.05, eps_decay=0.995):
     """Deep Q-Learning.
