@@ -63,7 +63,8 @@ class Agent():
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        # state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        state = torch.from_numpy(state).float().to(device)
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
@@ -75,12 +76,12 @@ class Agent():
         else:
             return random.choice(np.arange(self.action_size))
 
-    def learn(self, experiences, gamma):
+    def learn(self, experiences, gamma, type="dqn"):
         """Update value parameters using given batch of experience tuples.
 
         Params
         ======
-            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples 
+            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
@@ -90,13 +91,12 @@ class Agent():
         # detach: 安全に利用可能なテンソルを返す
         # max: actionにたいしてargmax
         # unsqueeze: 要素を個別のベクトルに入れた
-        # DQN
-        # Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
-
-        # Double DQN
-        index = self.qnetwork_local(next_states).detach().max(1)[1]
-        Q_targets_next = self.qnetwork_target(next_states).detach()
-        Q_targets_next = Q_targets_next.take(index).unsqueeze(1)
+        if type == "double":  # Double DQN
+            index = self.qnetwork_local(next_states).detach().max(1)[1]
+            Q_targets_next = self.qnetwork_target(next_states).detach()
+            Q_targets_next = Q_targets_next.take(index).unsqueeze(1)
+        else:  # "DQN"
+            Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
 
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
 
@@ -109,7 +109,7 @@ class Agent():
         self.optimizer.step()
 
         # ------------------- update target network ------------------- #
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)                     
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
 
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.
