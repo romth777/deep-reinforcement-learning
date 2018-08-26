@@ -92,7 +92,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
-BATCH_SIZE = 64  # minibatch size
+BATCH_SIZE = 2  # minibatch size
 GAMMA = 0.99  # discount factor
 TAU = 1e-3  # for soft update of target parameters
 LR = 5e-4  # learning rate
@@ -221,8 +221,10 @@ class Agent():
             target_model (PyTorch model): weights will be copied to
             tau (float): interpolation parameter
         """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
+        with torch.no_grad():
+            for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+                if target_param.requires_grad:
+                    target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
 
 class ReplayBuffer:
@@ -303,11 +305,10 @@ def dqn(n_episodes=1000, max_t=1000, eps_start=1.0, eps_end=0.05, eps_decay=0.99
         print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
-        if np.mean(scores_window) >= 200.0:
+        if np.mean(scores_window) >= 0.0:
             print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode - 100,
                                                                                          np.mean(scores_window)))
-            torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
-            break
+            torch.save(agent.qnetwork_local.state_dict(), 'checkpoint_{0:d}_{1:.2f}'.format(i_episode-100, np.mean(scores_window)) + '.pth')
     return scores
 
 
