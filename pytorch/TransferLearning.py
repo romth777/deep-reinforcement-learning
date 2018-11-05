@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    epochs = 2
+    epochs = 20
     steps = 0
     running_loss = 0
     print_every = 5

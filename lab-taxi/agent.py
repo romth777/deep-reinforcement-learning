@@ -5,7 +5,6 @@ class Agent:
 
     def __init__(self, nA=6, alpha=0.8, gamma=0.99, eps=None):
         """ Initialize agent.
-
         Params
         ======
         - nA: number of actions available to the agent
@@ -23,7 +22,6 @@ class Agent:
         Params
         ======
         - state: the current state of the environment
-
         Returns
         =======
         - action: an integer, compatible with the task's action space
@@ -33,7 +31,6 @@ class Agent:
 
     def step(self, state, action, reward, next_state, done):
         """ Update the agent's knowledge, using the most recently sampled tuple.
-
         Params
         ======
         - state: the previous state of the environment
@@ -76,4 +73,3 @@ class Agent:
     # alpha=0.4368600991691859, gamma=0.999, eps=None / Episode 20000/20000 || Best average reward 9.687
     def sarsa_max(self, state, action, reward, next_state, done):
         self.Q[state][action] = self.update_Q(self.Q[state][action], np.max(self.Q[next_state]), reward)
-

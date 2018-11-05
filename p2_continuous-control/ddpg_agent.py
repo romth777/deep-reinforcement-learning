@@ -19,6 +19,30 @@ WEIGHT_DECAY = 0        # L2 weight decay
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+class Agents():
+    def __init__(self, num_agents, state_size, action_size, random_seed):
+        self.num_agents = num_agents
+        self.agents = [Agent(state_size=state_size, action_size=action_size, random_seed=random_seed) for i in range(self.num_agents)]
+        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
+
+    def step(self, states, actions, rewards, next_states, dones):
+        for i, state, action, reward, next_state, done in enumerate(zip(states, actions, rewards, next_states, dones)):
+            self.agents[i].step(state, action, reward, next_state, done)
+
+    def act(self, states, add_noise=True):
+        actions = [self.agents[i].act(state, add_noise) for i, state in enumerate(states)]
+        return actions
+
+    def reset(self):
+        for i in range(self.num_agents):
+            self.agents[i].reset()
+
+    def learn(self, experiences, gamma):
+        for i, experience in enumerate(experiences):
+            self.agents[i].learn(experience, gamma)
+
+
+
 class Agent():
     """Interacts with and learns from the environment."""
     
@@ -50,16 +74,29 @@ class Agent():
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
+
+        self.timesteps_counter = 0
+        self.train_counter = 10
     
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
-
         # Learn, if enough samples are available in memory
         if len(self.memory) > BATCH_SIZE:
             experiences = self.memory.sample()
             self.learn(experiences, GAMMA)
+
+    def step_with_shared_memory(self, state, action, reward, next_state, done, shared_buffer=None):
+        # Save experience / reward
+        shared_buffer.add(state, action, reward, next_state, done)
+        # Learn, if enough samples are available in shared memory
+        if len(shared_buffer) > BATCH_SIZE and self.timesteps_counter >= 20:
+            for i in range(self.train_counter):
+                experiences = shared_buffer.sample()
+                self.learn(experiences, GAMMA)
+            self.timesteps_counter = 0
+        return shared_buffer
 
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
@@ -70,6 +107,7 @@ class Agent():
         self.actor_local.train()
         if add_noise:
             action += self.noise.sample()
+        self.timesteps_counter += 1
         return np.clip(action, -1, 1)
 
     def reset(self):
@@ -131,6 +169,14 @@ class Agent():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
+    def set_target_model(self, actor, critic):
+        self.actor_target = actor
+        self.critic_target = critic
+
+    def get_target_model(self):
+        return self.actor_target, self.critic_target
+
+
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
@@ -173,7 +219,7 @@ class ReplayBuffer:
         """Add a new experience to memory."""
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
-    
+
     def sample(self):
         """Randomly sample a batch of experiences from memory."""
         experiences = random.sample(self.memory, k=self.batch_size)
