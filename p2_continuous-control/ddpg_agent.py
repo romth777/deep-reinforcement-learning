@@ -14,33 +14,10 @@ BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 1e-3        # learning rate of the critic
+LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-class Agents():
-    def __init__(self, num_agents, state_size, action_size, random_seed):
-        self.num_agents = num_agents
-        self.agents = [Agent(state_size=state_size, action_size=action_size, random_seed=random_seed) for i in range(self.num_agents)]
-        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
-
-    def step(self, states, actions, rewards, next_states, dones):
-        for i, state, action, reward, next_state, done in enumerate(zip(states, actions, rewards, next_states, dones)):
-            self.agents[i].step(state, action, reward, next_state, done)
-
-    def act(self, states, add_noise=True):
-        actions = [self.agents[i].act(state, add_noise) for i, state in enumerate(states)]
-        return actions
-
-    def reset(self):
-        for i in range(self.num_agents):
-            self.agents[i].reset()
-
-    def learn(self, experiences, gamma):
-        for i, experience in enumerate(experiences):
-            self.agents[i].learn(experience, gamma)
-
 
 
 class Agent():
@@ -83,9 +60,22 @@ class Agent():
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
         # Learn, if enough samples are available in memory
-        if len(self.memory) > BATCH_SIZE:
-            experiences = self.memory.sample()
-            self.learn(experiences, GAMMA)
+        if len(self.memory) > BATCH_SIZE and self.timesteps_counter >= 20:
+            for i in range(self.train_counter):
+                experiences = self.memory.sample()
+                self.learn(experiences, GAMMA)
+            self.timesteps_counter = 0
+
+    def add(self, state, action, reward, next_state, done):
+        """Save experience in replay memory, and use random sample from buffer to learn."""
+        # Save experience / reward
+        self.memory.add(state, action, reward, next_state, done)
+
+    def learn_many_times(self, train_counter):
+        for i in range(train_counter):
+            if len(self.memory) > BATCH_SIZE:
+                experiences = self.memory.sample()
+                self.learn(experiences, GAMMA)
 
     def step_with_shared_memory(self, state, action, reward, next_state, done, shared_buffer=None):
         # Save experience / reward
@@ -105,10 +95,8 @@ class Agent():
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
-        if add_noise:
-            action += self.noise.sample()
         self.timesteps_counter += 1
-        return np.clip(action, -1, 1)
+        return action
 
     def reset(self):
         self.noise.reset()
@@ -175,6 +163,13 @@ class Agent():
 
     def get_target_model(self):
         return self.actor_target, self.critic_target
+
+    def load_weights(self, actor_path, critic_path):
+        self.actor_local.load_state_dict(torch.load(actor_path))
+        self.actor_target.load_state_dict(torch.load(actor_path))
+
+        self.critic_local.load_state_dict(torch.load(critic_path))
+        self.critic_target.load_state_dict(torch.load(critic_path))
 
 
 class OUNoise:
