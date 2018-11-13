@@ -63,7 +63,7 @@ The normal and binomial distribution reach convergence faster, the uniform and c
 This result shows that the distribution to add noise is very important to learn the environment to agents, and there is the difference to converge learning with choice of noise distribution.
 Also, I assume that the parameter of the noise generator is essential for the same reason.
 
-## ideas for Future Work
+## Ideas for Future Work
 In my trial, I could research the effect of noise choice. So I want to examine more deeply in that field.
 For instance;
  * What happens to change noise distribution parameters
