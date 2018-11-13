@@ -11,6 +11,7 @@ DDPG is the Deep Deterministic Policy Gradient to apply the continuous action sp
 In the DQN it uses argmax in the last layer, so we could not use it in the continuous action space.
 In the DDPG it uses two model of Actor and Critic, and Critic evaluates the Actor's action, and the Actor leans from Critic evaluation.
 Also, it uses a soft update of weight which blends the old weight parameters and newly calculated parameters.
+
 Here are my tips for implementation below.
  * The instance of every network should be one for each agent.
  * The example of replay memory should be one for each agent.
@@ -39,9 +40,19 @@ WEIGHT_DECAY = 0        # L2 weight decay
 
 Also in my trial, I use multiple agent environments.
 
+Additionally, let's talk about steps.
+In our environment, each agent takes a step. The step is the one-shot situation which agent act and environment evaluate the reward and send next state.
+Here is the diagram of reinforcement learning and one loop is the one step.
+![rl diagram](./misc/rl_diagram.png)
+http://incompleteideas.net/book/bookdraft2017nov5.pdf
+
+Moreover, in my DDPG agent to train 20 agents, the steps are counted based on the act function called. 
+This working means that each agent shares the counter of action for training timing.
+
+The Actor and Critic model are made by the deep neural network, which can be optimized by gradient descent method.
+
 ## Plot of Rewards
 ![best learning courve](./misc/score.png)
-
 
 ## Discussion
 In my trial, I found that the choice of noise distribution function is the most important to converge this task.
@@ -59,7 +70,7 @@ These are in numpy library, and parameters are default of numpy. Here is the res
 ![learning courves](./misc/scores.png)
 ![averaged_learning courves](./misc/averaged_scores.png)
 
-The normal and binomial distribution reach convergence faster, the uniform and chi-square distribution does not converge, and the others are converged but slower than normal and binomial's.
+The normal and binomial distribution reach convergence faster, the uniform and chi-square distribution do not converge, and the others are converged but slower than normal and binomial's.
 This result shows that the distribution to add noise is very important to learn the environment to agents, and there is the difference to converge learning with choice of noise distribution.
 Also, I assume that the parameter of the noise generator is essential for the same reason.
 
