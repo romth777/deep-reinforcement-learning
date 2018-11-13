@@ -9,11 +9,12 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
+
 BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_ACTOR = 1e-4         # learning rate of the actor
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 
@@ -22,18 +23,20 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent():
     """Interacts with and learns from the environment."""
-    
-    def __init__(self, state_size, action_size, random_seed):
+
+    def __init__(self, state_size, action_size, num_agents, random_seed):
         """Initialize an Agent object.
-        
+
         Params
         ======
             state_size (int): dimension of each state
             action_size (int): dimension of each action
+            num_agents (int): number of agents
             random_seed (int): random seed
         """
         self.state_size = state_size
         self.action_size = action_size
+        self.num_agents = num_agents
         self.seed = random.seed(random_seed)
 
         # Actor Network (w/ Target Network)
@@ -47,21 +50,28 @@ class Agent():
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise = OUNoise(action_size, random_seed)
+        self.noise = OUNoise((num_agents, action_size), random_seed)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
 
+        # Make sure target is with the same weight as the source found on slack
+        self.hard_update(self.actor_target, self.actor_local)
+        self.hard_update(self.critic_target, self.critic_local)
+
         self.timesteps_counter = 0
         self.train_counter = 10
-    
+
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
-        self.memory.add(state, action, reward, next_state, done)
+        for i in range(self.num_agents):
+            self.memory.add(state[i, :], action[i, :], reward[i], next_state[i, :], done[i])
+
+        self.timesteps_counter += 1
         # Learn, if enough samples are available in memory
-        if len(self.memory) > BATCH_SIZE and self.timesteps_counter >= 20:
-            for i in range(self.train_counter):
+        if len(self.memory) > BATCH_SIZE and self.timesteps_counter > 20:
+            for _ in range(self.train_counter):
                 experiences = self.memory.sample()
                 self.learn(experiences, GAMMA)
             self.timesteps_counter = 0
@@ -70,33 +80,21 @@ class Agent():
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
+        self.timesteps_counter += 1
 
-    def learn_many_times(self, train_counter):
-        for i in range(train_counter):
-            if len(self.memory) > BATCH_SIZE:
-                experiences = self.memory.sample()
-                self.learn(experiences, GAMMA)
-
-    def step_with_shared_memory(self, state, action, reward, next_state, done, shared_buffer=None):
-        # Save experience / reward
-        shared_buffer.add(state, action, reward, next_state, done)
-        # Learn, if enough samples are available in shared memory
-        if len(shared_buffer) > BATCH_SIZE and self.timesteps_counter >= 20:
-            for i in range(self.train_counter):
-                experiences = shared_buffer.sample()
-                self.learn(experiences, GAMMA)
-            self.timesteps_counter = 0
-        return shared_buffer
-
-    def act(self, state, add_noise=True):
+    def act(self, states, add_noise=True, noise_type="uniform"):
         """Returns actions for given state as per current policy."""
-        state = torch.from_numpy(state).float().to(device)
+        states = torch.from_numpy(states).float().to(device)
+        actions = []
         self.actor_local.eval()
         with torch.no_grad():
-            action = self.actor_local(state).cpu().data.numpy()
+            for agent_num, state in enumerate(states):
+                action = self.actor_local(state).cpu().data.numpy()
+                actions.append(action)
         self.actor_local.train()
-        self.timesteps_counter += 1
-        return action
+        if add_noise:
+            actions += self.noise.sample(noise_type)
+        return np.clip(np.array(actions), -1, 1)
 
     def reset(self):
         self.noise.reset()
@@ -110,7 +108,7 @@ class Agent():
 
         Params
         ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
+            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
@@ -124,7 +122,6 @@ class Agent():
         # Compute critic loss
         Q_expected = self.critic_local(states, actions)
         critic_loss = F.mse_loss(Q_expected, Q_targets)
-        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
@@ -142,27 +139,26 @@ class Agent():
 
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)                     
+        self.soft_update(self.actor_local, self.actor_target, TAU)
 
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.
         θ_target = τ*θ_local + (1 - τ)*θ_target
-
         Params
         ======
             local_model: PyTorch model (weights will be copied from)
             target_model: PyTorch model (weights will be copied to)
-            tau (float): interpolation parameter 
+            tau (float): interpolation parameter
         """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+            target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
-    def set_target_model(self, actor, critic):
-        self.actor_target = actor
-        self.critic_target = critic
-
-    def get_target_model(self):
-        return self.actor_target, self.critic_target
+    ## from slack - Since you're using DDPG, @gregoriomezquita mentioned that
+    ## initializing the weights of the target networks to be the same as those
+    ## of the live networks seemed to make a huge difference
+    def hard_update(self, target, source):
+        for target_param, param in zip(target.parameters(), source.parameters()):
+            target_param.data.copy_(param.data)
 
     def load_weights(self, actor_path, critic_path):
         self.actor_local.load_state_dict(torch.load(actor_path))
@@ -180,6 +176,7 @@ class OUNoise:
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
+        self.size = size
         self.seed = random.seed(seed)
         self.reset()
 
@@ -187,12 +184,34 @@ class OUNoise:
         """Reset the internal state (= noise) to mean (mu)."""
         self.state = copy.copy(self.mu)
 
-    def sample(self):
+    def sample(self, type="normal"):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x)
+        if type == "normal":
+             dx += self.sigma * np.random.standard_normal(self.size)
+        elif type == "cauchy":
+            dx += self.sigma * np.random.standard_cauchy(self.size)
+        elif type == "exponential":
+            dx += self.sigma * np.random.standard_exponential(self.size)
+        elif type == "gamma":
+            dx += self.sigma * np.random.standard_gamma(self.size)
+        elif type == "t":
+            dx += self.sigma * np.random.standard_t(self.size)
+        elif type == "uniform":
+            dx += self.sigma * np.random.uniform(-1, 1, self.size)
+        elif type == "binomial":
+            dx += self.sigma * np.random.binominal(self.size)
+        elif type == "beta":
+            dx += self.sigma * np.random.beta(self.size)
+        elif type == "chisquare":
+            dx += self.sigma * np.random.chisquare(self.size)
+        else:
+            dx += self.sigma * np.array([[random.random() for _ in range(self.size[1])] for _ in range(self.size[0])])
+
         self.state = x + dx
         return self.state
+
 
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""

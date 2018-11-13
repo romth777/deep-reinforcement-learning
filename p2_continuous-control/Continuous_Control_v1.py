@@ -23,59 +23,53 @@ env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
 state_size = env_info.vector_observations.shape[1]
 action_size = env_info.previous_vector_actions.shape[1]
 NUM_AGENTS = 20
-BUFFER_SIZE = int(1e5)
-BATCH_SIZE = 256
 SEED = 72
-agents = Agent(state_size=state_size, action_size=action_size, random_seed=SEED)
-noises = [OUNoise(action_size, SEED + i) for i in range(NUM_AGENTS)]
-[noise.reset() for noise in noises]
+agent = Agent(state_size=state_size, action_size=action_size, random_seed=SEED)
 writer = tbx.SummaryWriter()
 
 
-def ddpg(n_episodes=2000, max_t=1000, print_every=10):
-    scores_deque = deque(maxlen=print_every)
+def ddpg(n_episodes=2000, max_t=1000):
+    scores_deque = deque(maxlen=100)
     scores = []
     timesteps = 0
     tbx_counter = 0
+    max_score = -np.Inf
 
     for i_episode in range(1, n_episodes + 1):
         state = env.reset(train_mode=True)[brain_name].vector_observations
-        agents.reset()
+        agent.reset()
         score = 0
         for t in range(max_t):
-            for i, noise in enumerate(noises):
-                action = agents.act(state) + noise.sample()
-                action = np.clip(action, -1, 1)
-                obj = env.step(action)
-                next_state = obj["ReacherBrain"].vector_observations
-                reward = obj["ReacherBrain"].rewards[0]
-                done = obj["ReacherBrain"].local_done[0]
-                agents.add(state, action, reward, next_state, done)
-                state = next_state
+            action = agent.act(state)
+            obj = env.step(action)
+            next_state = obj["ReacherBrain"].vector_observations
+            reward = obj["ReacherBrain"].rewards[0]
+            done = obj["ReacherBrain"].local_done[0]
+            agent.step(state, action, reward, next_state, done)
 
-                writer.add_scalar('data/reward', reward, global_step=tbx_counter)
-                writer.add_scalar('data/action1', action[0][0], global_step=tbx_counter)
-                writer.add_scalar('data/action2', action[0][1], global_step=tbx_counter)
-                writer.add_scalar('data/action3', action[0][2], global_step=tbx_counter)
-                writer.add_scalar('data/action4', action[0][3], global_step=tbx_counter)
-                tbx_counter += 1
+            writer.add_scalar('data/reward', reward, global_step=tbx_counter)
+            writer.add_scalar('data/action1', action[0][0], global_step=tbx_counter)
+            writer.add_scalar('data/action2', action[0][1], global_step=tbx_counter)
+            writer.add_scalar('data/action3', action[0][2], global_step=tbx_counter)
+            writer.add_scalar('data/action4', action[0][3], global_step=tbx_counter)
+            tbx_counter += 1
 
-                timesteps += 1
-                if timesteps > 20:
-                    agents.learn_many_times(train_counter=10)
-                    timesteps = 0
-                score += reward
-                if done:
-                    break
+            state = next_state
+            score += reward
+            if done:
+                break
 
         scores_deque.append(score)
         scores.append(score)
-        print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-        torch.save(agents.actor_local.state_dict(), 'checkpoint_actor_v1.pth')
-        torch.save(agents.critic_local.state_dict(), 'checkpoint_critic_v1.pth')
-
+        ave_score = np.mean(scores_deque)
+        print('\rEpisode {}\t[Score] Current: {:.2f}\tAverage: {:.2f}'.format(i_episode, score, ave_score))
         writer.add_scalar('data/score', score, i_episode)
+        writer.add_scalar('data/ave_score', ave_score, i_episode)
 
+        if ave_score > 30:
+            torch.save(agent.actor_local.state_dict(), 'checkpoint_actor_v1.pth')
+            torch.save(agent.critic_local.state_dict(), 'checkpoint_critic_v1.pth')
+            break
     return scores
 
 

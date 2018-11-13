@@ -2,12 +2,14 @@
 from pathlib import Path
 from collections import deque
 import matplotlib.pyplot as plt
-from multiprocessing import Manager
+import logging
+from datetime import datetime
 
 from unityagents import UnityEnvironment
 import numpy as np
 import torch
 import tensorboardX as tbx
+
 
 from ddpg_agent import Agent, ReplayBuffer, OUNoise
 
@@ -25,61 +27,63 @@ env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
 state_size = env_info.vector_observations.shape[1]
 action_size = env_info.previous_vector_actions.shape[1]
 NUM_AGENTS = 20
-BUFFER_SIZE = int(1e5)
-BATCH_SIZE = 256
-SEED = 72
-agent = Agent(state_size=state_size, action_size=action_size, random_seed=SEED)
-noises = [OUNoise(action_size, SEED + i) for i in range(NUM_AGENTS)]
-[noise.reset() for noise in noises]
-writer = tbx.SummaryWriter()
+SEED = 71
 
-
-def ddpg(n_episodes=2000, max_t=1000, print_every=10):
-    scores_deque = deque(maxlen=print_every)
-    scores = []
-    timesteps = 0
-    tbx_counter = 0
+def ddpg(n_episodes=120, max_t=1000, ave_length=100, noise_type="uniform"):
+    scores_deque = deque(maxlen=ave_length)
+    cp = CheckPoint()
 
     for i_episode in range(1, n_episodes + 1):
-        states = env.reset(train_mode=True)[brain_name].vector_observations
-        score = 0
+        env_info = env.reset(train_mode=True)[brain_name]
+        states = env_info.vector_observations
+        scores = np.zeros(NUM_AGENTS)
         for t in range(max_t):
-            actions = []
-            for i in range(NUM_AGENTS):
-                action = agent.act(states[i].reshape(1, -1)) + noises[i].sample()
-                action = np.clip(action, -1, 1)
-                actions.append(action.reshape(-1))
-            actions = np.array(actions)
-            obj = env.step(actions)
-            next_states = obj["ReacherBrain"].vector_observations
-            rewards = obj["ReacherBrain"].rewards
-            dones = obj["ReacherBrain"].local_done
-            for state, action, reward, next_state, done in zip(states, actions, rewards, next_states, dones):
-                agent.add(state, action, reward, next_state, done)
-            timesteps += 1
-            if timesteps > 20:
-                agent.learn_many_times(train_counter=10)
-                timesteps = 0
+            actions = agent.act(states, noise_type)
+            env_info = env.step(actions)[brain_name]
+            next_states = env_info.vector_observations
+            rewards = env_info.rewards
+            dones = env_info.local_done
+            agent.step(states, actions, rewards, next_states, dones)
             states = next_states
-            score += np.mean(rewards)
+            scores += rewards
 
-            if dones.count(True) > 0:
+            if np.any(dones):
                 break
+        score = np.mean(scores)
         scores_deque.append(score)
-        scores.append(score)
-        print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-        torch.save(agent.actor_local.state_dict(), 'checkpoint_actor_v2.pth')
-        torch.save(agent.critic_local.state_dict(), 'checkpoint_critic_v2.pth')
-        if i_episode % print_every == 0:
-            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-
+        ave_score = np.mean(scores_deque)
+        print('\rEpisode {}\t[Score] Current: {:.2f}\tAverage: {:.2f}'.format(i_episode, score, ave_score))
+        if cp.is_maximum(ave_score):
+            torch.save(agent.actor_local.state_dict(), 'checkpoint_actor_v2.pth')
+            torch.save(agent.critic_local.state_dict(), 'checkpoint_critic_v2.pth')
         writer.add_scalar('data/score', score, i_episode)
+        writer.add_scalar('data/ave_score', ave_score, i_episode)
 
-    return scores
+    return scores_deque
 
 
-scores = ddpg()
-writer.close()
+class CheckPoint:
+    def __init__(self):
+        self.current = None
+        self.target = None
+
+    def is_maximum(self, data):
+        if self.target is None:
+            self.target = data
+        else:
+            self.current = data
+            if self.current > self.target:
+                return True
+        return False
+
+
+# for type in ["normal", "cauchy", "exponential", "gamma", "t", "uniform", "binomial", "beta", "chisquare"]:
+for type in ["else"]:
+    print(type)
+    agent = Agent(state_size=state_size, action_size=action_size, num_agents=NUM_AGENTS, random_seed=SEED)
+    writer = tbx.SummaryWriter()
+    scores = ddpg(noise_type=type)
+    writer.close()
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
