@@ -9,19 +9,19 @@
 I use the algorithm of reinforcement learning to this task named DDPG.
 DDPG is the Deep Deterministic Policy Gradient to apply the continuous action space.
 In the DQN it uses argmax in the last layer, so we could not use it in the continuous action space.
-In the DDPG it uses two model of Actor and Critic, and Critic evaluate the Actor's action and the Actor leans from Critic evaluation.
-Also it uses soft update of weight which blends the old weight parameters and new calculated parameters.
-Here is my tips for implementation below.
+In the DDPG it uses two model of Actor and Critic, and Critic evaluates the Actor's action, and the Actor leans from Critic evaluation.
+Also, it uses a soft update of weight which blends the old weight parameters and newly calculated parameters.
+Here are my tips for implementation below.
  * The instance of every network should be one for each agent.
- * The instance of replay memory should be one for each agent.
- * The instance of noise generate process should be prepared for each agent.
- * Update model 20 times for each action steps which is total number of agents and update 10 times for each timing.
- * [Important] the choice of random noise distribution type is very important to complete, this is because the choice of noise distribution type is equal to how to explore the environment space.
+ * The example of replay memory should be one for each agent.
+ * The case of noise generating process should be prepared for each agent.
+ * Update model 20 times for each action steps which is a total number of agents and update ten times for each timing.
+ * [Important] the choice of random noise distribution type is critical to complete, this is because the opportunity of noise distribution type is equal to how to explore the environment space.
  * I did not use batch normalization.
- * The learning rate recommend to change to 1e-3 but I did not change. 
+ * The learning rate recommend changing to 1e-3 but I did not change. 
  * To add random noise with epsilon decayed but I did not use it.
 
-In my case, the network model of DDPG consists of below, same in the Actor and Critic of the Target and Local without the activation function of output layer;
+In my case, the network model of DDPG consists of below, same in the Actor and Critic of the Target and Local without the activation function of the output layer;
 
  * 1st layer: Fully-Connected layer(input size=33, output size=600, activation=ReLu)
  * 2nd layer: Fully-Connected layer(input size=600, output size=450, activation=ReLu)
@@ -37,7 +37,7 @@ LR_ACTOR = 1e-4         # learning rate of the actor
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 
-Also in my trial I use multiple agent environment.
+Also in my trial, I use multiple agent environments.
 
 ## Plot of Rewards
 ![best learning courve](./misc/score.png)
@@ -59,13 +59,13 @@ These are in numpy library, and parameters are default of numpy. Here is the res
 ![learning courves](./misc/scores.png)
 ![averaged_learning courves](./misc/averaged_scores.png)
 
-The normal and binominal distribution reach convergence faster, the uniform and chisquare distribution does not converge, and the others are converged but slower than normal and binomial's.
-This shows that the distribution to add noise is very important to learn the emvironment to agents, and there is the difference to converge learning with choice of noise distribution.
-Also I assume that the parameter of noise generator is important by the same reason.
+The normal and binomial distribution reach convergence faster, the uniform and chi-square distribution does not converge, and the others are converged but slower than normal and binomial's.
+This result shows that the distribution to add noise is very important to learn the environment to agents, and there is the difference to converge learning with choice of noise distribution.
+Also, I assume that the parameter of the noise generator is essential for the same reason.
 
 ## ideas for Future Work
-In my trial I could research the effect of noise choice. So I wanna research more deeply in that field.
+In my trial, I could research the effect of noise choice. So I want to examine more deeply in that field.
 For instance;
  * What happens to change noise distribution parameters
  * What happens to the different task.
- * How about the different noise distribution which is effective convergence.
+ * How about the different noise distribution which is effective convergence.averaged on 100 data.
