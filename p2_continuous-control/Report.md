@@ -29,14 +29,14 @@ In my case, the network model of DDPG consists of below, same in the Actor and C
  * 3rd layer: Fully-Connected layer(input size=450, output size=4, activation=tanh in Actor / Linear in Critic)
 This environment has 33 dimension input data for each agent and 4 actions to move the arm.
 
-The other hyperparameters of my learning are below;
-BUFFER_SIZE = int(1e5)  # replay buffer size
-BATCH_SIZE = 128        # minibatch size
-GAMMA = 0.99            # discount factor
-TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor
-LR_CRITIC = 1e-4        # learning rate of the critic
-WEIGHT_DECAY = 0        # L2 weight decay
+The other hyperparameters of my learning are below;  
+BUFFER_SIZE = int(1e5)  # replay buffer size  
+BATCH_SIZE = 128        # minibatch size  
+GAMMA = 0.99            # discount factor  
+TAU = 1e-3              # for soft update of target parameters  
+LR_ACTOR = 1e-4         # learning rate of the actor  
+LR_CRITIC = 1e-4        # learning rate of the critic  
+WEIGHT_DECAY = 0        # L2 weight decay  
 
 Also in my trial, I use multiple agent environments.
 
