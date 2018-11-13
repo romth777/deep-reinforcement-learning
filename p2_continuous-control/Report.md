@@ -43,7 +43,7 @@ Also in my trial, I use multiple agent environments.
 Additionally, let's talk about steps.
 In our environment, each agent takes a step. The step is the one-shot situation which agent act and environment evaluate the reward and send next state.
 Here is the diagram of reinforcement learning and one loop is the one step.
-![rl diagram](./misc/rl_diagram.png)
+![rl diagram](./misc/rl_diagram.PNG)  
 http://incompleteideas.net/book/bookdraft2017nov5.pdf
 
 Moreover, in my DDPG agent to train 20 agents, the steps are counted based on the act function called. 
