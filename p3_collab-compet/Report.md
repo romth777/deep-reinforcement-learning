@@ -7,9 +7,9 @@
 
 ## Learning Algorithm
 I use the algorithm of reinforcement learning to this task named MADDPG.
-MADDPG is the Multi Agent Deep Deterministic Policy Gradient to apply multi agent for the continuous action space.
-In the DDPG it uses only one agent of Actor-Critic model.
-In the MADDPG it uses multi agents with shared experiment replay, indipendent actor and critic which also have local and target models.
+MADDPG is the Multi-Agent Deep Deterministic Policy Gradient to apply multi-agent for the continuous action space.
+In the DDPG it uses only one agent of the Actor-Critic model.
+In the MADDPG it uses multi-agents with shared experiment replay, independent actor and critic which also have local and target models.
 Also, it uses a soft update of weight which blends the old weight parameters and newly calculated parameters by TAU.
 
 Here are my tips for implementation below.
@@ -18,7 +18,7 @@ Here are my tips for implementation below.
  * The case of noise generating process should not be shared for each agent.
  * Update model one time for each action steps and update one time for each timing.
  * I did not use batch normalization.
- * The learning rate and TAU tuning is important for convergence of training.
+ * The learning rate and TAU tuning is vital for convergence of training.
  * To add random noise with epsilon decayed but I did not use it.
 
 In my case, the agent network model of the MADDPG consists of below, same in the Actor and Critic of the Target and Local without the activation function of the output layer;
@@ -41,13 +41,13 @@ N_UPDATES = 1           # number of update for each timing
 
 Additionally, let's talk about steps.
 In our environment, each agent takes a step.
-The step is the one-shot situation which agent act and environment evaluate the reward and send next state.
+The step is the single situation which agent act and environment evaluate the reward and send next state.
 Here is the diagram of reinforcement learning and one loop is the one step.  
-![rl diagram](./misc/rl_diagram.PNG)  
+![rl diagram](./misc/rl_diagram.png)  
 http://incompleteideas.net/book/bookdraft2017nov5.pdf
 
-Moreover, in my case, the step counter is not for each agent, but for all agents.
-This means all the agents share the action loop and take different action in the same timing.
+Moreover, in my case, the step counter is not for each agent, but all agents.
+This sharing means all the agents share the action loop and take different action in the same timing.
 The Actor and Critic model are made by the deep neural network, which can be optimized by gradient descent method.
 
 ## Plot of Rewards
@@ -60,9 +60,9 @@ The Actor and Critic model are made by the deep neural network, which can be opt
 ## Discussion
 In my trial, the selection of TAU and learning rate is very sensitive for converge.
 When I try learning rate for 1e-4, the agents get 0.00 score, in the other case when I try TAU=1e-4 also get 0.00 score.
-This is because if the update of parameter with very large value, then the agent forget the good behaivior in the past.
-So, blending parameter with past model is very important for reinforcement learning.
+This story is because if the update value of the parameter is immense, then the agent forget the excellent behavior in the past.
+So, blending parameter with the past model is very important for reinforcement learning.
 
 ## Ideas for Future Work
-In my trial, I choose learning rate and TAU by manual treatment.
-However in the professional use it should be automatically using like grid search or the other method.
+In my trial, I choose learning rate and TAU by standard treatment.
+However, in the professional use, it should be automatically using like grid search or the other method.
