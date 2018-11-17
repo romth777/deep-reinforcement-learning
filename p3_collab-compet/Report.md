@@ -21,12 +21,22 @@ Here are my tips for implementation below.
  * The learning rate and TAU tuning is vital for convergence of training.
  * To add random noise with epsilon decayed but I did not use it.
 
-In my case, the agent network model of the MADDPG consists of below, same in the Actor and Critic of the Target and Local without the activation function of the output layer;
+In my case, the agent network model of the MADDPG consists of below. These architecture are same in the Target and Local without the activation function of the output layer;
 
- * 1st layer: Fully-Connected layer(input size=33, output size=600, activation=ReLu)
- * 2nd layer: Fully-Connected layer(input size=600, output size=450, activation=ReLu)
- * 3rd layer: Fully-Connected layer(input size=450, output size=4, activation=tanh in Actor / Linear in Critic)
-This environment has 33 dimension input data for each agent and 4 actions to move the arm.
+ * Actor
+   * 1st layer: Fully-Connected layer(input size=8 * 2, output size=600, activation=ReLu)
+     * The input size is composed by manupilation of action of an agent and number of agents.
+   * 2nd layer: Fully-Connected layer(input size=600, output size=450, activation=ReLu)
+   * 3rd layer: Fully-Connected layer(input size=450, output size=2, activation=tanh)
+
+ * Critic
+   * 1st layer: Fully-Connected layer(input size=8 * 2, output size=600, activation=ReLu)
+     * The input size is composed by manupilation of action of an agent and number of agents.
+   * 2nd layer: Fully-Connected layer(input size=600 + 2 * 2, output size=450, activation=ReLu)
+     * The input size is concrete of 1st layer output and the bypass input of each agent actions.
+   * 3rd layer: Fully-Connected layer(input size=450, output size=1, activation=tanh)
+
+This environment has 8 dimension input data for each agent and 2 actions to move.
 
 The other hyperparameters of my learning are below;  
 BUFFER_SIZE = int(1e6)  # replay buffer size
