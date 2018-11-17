@@ -22,11 +22,19 @@ Here are my tips for implementation below.
  * The learning rate recommend changing to 1e-3 but I did not change. 
  * To add random noise with epsilon decayed but I did not use it.
 
-In my case, the network model of DDPG consists of below, same in the Actor and Critic of the Target and Local without the activation function of the output layer;
+In my case, the network model of DDPG consists of below, same in the Target and Local;
 
- * 1st layer: Fully-Connected layer(input size=33, output size=600, activation=ReLu)
- * 2nd layer: Fully-Connected layer(input size=600, output size=450, activation=ReLu)
- * 3rd layer: Fully-Connected layer(input size=450, output size=4, activation=tanh in Actor / Linear in Critic)
+ * Actor
+   * 1st layer: Fully-Connected layer(input size=33, output size=600, activation=ReLu)
+   * 2nd layer: Fully-Connected layer(input size=600, output size=450, activation=ReLu)
+   * 3rd layer: Fully-Connected layer(input size=450, output size=4, activation=tanh)
+
+ * Critic
+   * 1st layer: Fully-Connected layer(input size=33, output size=600, activation=ReLu)
+   * 2nd layer: Fully-Connected layer(input size=600 + 4, output size=450, activation=ReLu)
+     * The input size is concrete of 1st layer output and the bypass input of the agent action.
+   * 3rd layer: Fully-Connected layer(input size=450, output size=1, activation=tanh)
+
 This environment has 33 dimension input data for each agent and 4 actions to move the arm.
 
 The other hyperparameters of my learning are below;  
@@ -41,7 +49,7 @@ WEIGHT_DECAY = 0        # L2 weight decay
 Also in my trial, I use multiple agent environments.
 
 Additionally, let's talk about steps.
-In our environment, each agent takes a step. The step is the one-shot situation which agent act and environment evaluate the reward and send next state.
+In our environment, each agent takes a step. The step is the single situation which agent act and environment evaluate the reward and send next state.
 Here is the diagram of reinforcement learning and one loop is the one step.  
 ![rl diagram](./misc/rl_diagram.PNG)  
 http://incompleteideas.net/book/bookdraft2017nov5.pdf

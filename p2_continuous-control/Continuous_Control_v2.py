@@ -2,14 +2,11 @@
 from pathlib import Path
 from collections import deque
 import matplotlib.pyplot as plt
-import logging
-from datetime import datetime
 
 from unityagents import UnityEnvironment
 import numpy as np
 import torch
 import tensorboardX as tbx
-
 
 from ddpg_agent import Agent, ReplayBuffer, OUNoise
 
